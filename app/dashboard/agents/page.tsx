@@ -395,7 +395,8 @@ export default function AgentsPage() {
                       {runResult?.error ? (
                         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                           <p>{runResult.error}</p>
-                          {!googleConnection.connected && <Button type="button" onClick={() => { window.location.href = "/api/google/connect" }} className="mt-3 rounded-full bg-purple-700 hover:bg-purple-800">Connect Google</Button>}
+                          {(!googleConnection.connected || runResult.error.includes("Google Docs API")) && <Button type="button" onClick={() => { window.location.href = "/api/google/connect" }} className="mt-3 rounded-full bg-purple-700 hover:bg-purple-800">{googleConnection.connected ? "Reconnect Google permissions" : "Connect Google"}</Button>}
+                          {runResult.error.includes("Google Docs API") && <a href="https://console.cloud.google.com/apis/library/docs.googleapis.com" target="_blank" rel="noreferrer" className="ml-3 mt-3 inline-flex text-sm font-medium text-purple-700 underline underline-offset-4">Enable Google Docs API</a>}
                         </div>
                       ) : null}
                       {runResult?.status === "completed" ? (

@@ -8,6 +8,19 @@ CREATE TABLE IF NOT EXISTS google_connections (
   updated_at timestamp DEFAULT now() NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS service_connections (
+  clerk_user_id text NOT NULL,
+  provider varchar(40) NOT NULL,
+  account_id text NOT NULL,
+  account_name text NOT NULL,
+  encrypted_access_token text NOT NULL,
+  encrypted_refresh_token text,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  PRIMARY KEY (clerk_user_id, provider, account_id)
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id serial PRIMARY KEY,
   name text,

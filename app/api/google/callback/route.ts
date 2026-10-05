@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const stateUserId = state?.split(".")[0]
   const baseUrl = getAppUrl(request.nextUrl.origin)
   const redirectToAgents = (result: string, reason?: string) => {
-    const target = new URL(`${baseUrl}/dashboard/agents`)
+    const target = new URL(`${baseUrl}/dashboard/integrations`)
     target.searchParams.set("google", result)
     if (reason) target.searchParams.set("google_reason", reason)
     const response = NextResponse.redirect(target)

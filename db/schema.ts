@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -28,6 +29,20 @@ export const googleConnections = pgTable("google_connections", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const serviceConnections = pgTable("service_connections", {
+  clerkUserId: text("clerk_user_id").notNull(),
+  provider: varchar("provider", { length: 40 }).notNull(),
+  accountId: text("account_id").notNull(),
+  accountName: text("account_name").notNull(),
+  encryptedAccessToken: text("encrypted_access_token").notNull(),
+  encryptedRefreshToken: text("encrypted_refresh_token"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.clerkUserId, table.provider, table.accountId] }),
+}));
 
 export const agentConfig = pgTable("agentConfig", {
   id: serial("id").primaryKey(),
