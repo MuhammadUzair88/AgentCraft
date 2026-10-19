@@ -391,7 +391,12 @@ export default function AgentsPage() {
                     <div className="border-t border-slate-200 pt-5"><h3 className="text-sm font-semibold text-slate-900">Instructions</h3><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-600">{response.config.instructions}</p></div>
                     <div className="border-t border-slate-200 pt-5" aria-live="polite">
                       <h3 className="text-sm font-semibold text-slate-900">Agent run</h3>
-                      {isRunning ? <p className="mt-2 text-sm text-slate-500">Reading important recent emails and preparing your results…</p> : null}
+                      {isRunning ? (
+                        <div className="mt-4 flex items-center gap-4 rounded-2xl bg-purple-50 p-4" role="status" aria-live="polite">
+                          <span className="animate-bounce text-4xl" aria-hidden="true">🤖</span>
+                          <span className="rounded-2xl rounded-bl-sm bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm">Loading, please wait…</span>
+                        </div>
+                      ) : null}
                       {runResult?.error ? (
                         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                           <p>{runResult.error}</p>
@@ -401,9 +406,11 @@ export default function AgentsPage() {
                       ) : null}
                       {runResult?.status === "completed" ? (
                         <>
-                          {typeof runResult.messageCount === "number" && <p className="mt-2 text-sm text-slate-600">Checked {runResult.messageCount} important emails from the last 7 days.</p>}
+                          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-emerald-50 p-4" role="status" aria-live="polite">
+                            <span className="flex size-12 items-center justify-center rounded-full bg-white text-3xl shadow-sm" aria-hidden="true">👍</span>
+                            <span className="text-sm font-semibold text-emerald-800">All done!</span>
+                          </div>
                           {runResult.warnings?.map((warning) => <p key={warning} className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{warning}</p>)}
-                          <p className="mt-3 whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-700">{runResult.summary}</p>
                           {runResult.documentUrl && <a href={runResult.documentUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-medium text-purple-700 underline underline-offset-4">Open the Google Doc</a>}
                           {runResult.calendarEventUrl && <a href={runResult.calendarEventUrl} target="_blank" rel="noreferrer" className="mt-4 ml-4 inline-flex text-sm font-medium text-purple-700 underline underline-offset-4">Open calendar event</a>}
                           {runResult.meetingUrl && <a href={runResult.meetingUrl} target="_blank" rel="noreferrer" className="mt-4 ml-4 inline-flex text-sm font-medium text-purple-700 underline underline-offset-4">Open Google Meet</a>}
@@ -493,7 +500,7 @@ export default function AgentsPage() {
                         <p className="mt-1 text-sm leading-6 text-slate-500">{agent.description || agent.objective}</p>
                         <p className="mt-2 text-xs text-slate-400">Tools: {agent.tools?.join(", ") || "No external tools"}</p>
                         {agent.latestRun && <p className="mt-2 text-xs text-slate-500">Last run: <span className="capitalize">{agent.latestRun.status}</span>{agent.latestRun.completedAt ? ` · ${new Date(agent.latestRun.completedAt).toLocaleString()}` : ""}</p>}
-                        {agent.latestRun?.output?.summary && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{agent.latestRun.output.summary}</p>}
+                        {agent.latestRun?.status === "completed" && <p className="mt-2 text-sm font-medium text-emerald-700">👍 Completed</p>}
                         {agent.latestRun?.output?.documentUrl && <a href={agent.latestRun.output.documentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-sm font-medium text-purple-700 underline underline-offset-4">Open latest Google Doc</a>}
                         {agent.latestRun?.output?.calendarEventUrl && <a href={agent.latestRun.output.calendarEventUrl} target="_blank" rel="noreferrer" className="ml-4 mt-2 inline-flex text-sm font-medium text-purple-700 underline underline-offset-4">Open latest calendar event</a>}
                         {agent.latestRun?.output?.meetingUrl && <a href={agent.latestRun.output.meetingUrl} target="_blank" rel="noreferrer" className="ml-4 mt-2 inline-flex text-sm font-medium text-purple-700 underline underline-offset-4">Open latest Google Meet</a>}

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         tools: agent.tools ?? [],
         outputFormat: agent.outputFormat ?? "Summary",
       }
-      const output = await executeAgent(userId, config.objective, config)
+      const output = await executeAgent(userId, config.objective, config, email)
       await db.update(agentRun).set({ status: "completed", output, completedAt: new Date() }).where(eq(agentRun.id, run.id))
       return NextResponse.json({ runId: run.id, ...output })
     } catch (error) {

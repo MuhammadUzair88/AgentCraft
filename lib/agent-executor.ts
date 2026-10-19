@@ -460,12 +460,13 @@ async function runGitHubFileAction(clerkUserId: string, request: NonNullable<Ret
   return { action: request.mode === "create" ? "created" : "updated", repository: fullName, path: request.path, url: saved.data.content.html_url }
 }
 
-function getEmailRequest(task: string) {
+function getEmailRequest(task: string, connectedEmail?: string) {
   // Sending any artifact (for example, a Doc link to Discord) must not be
   // interpreted as an email action. Only parse this request when email is
   // explicitly named.
   if (!/\b(?:email|e-mail)\b/i.test(task)) return null
   const recipient = task.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/)?.[0]
+    ?? (/\b(?:my|the user's|user's) connected email(?: address)?\b/i.test(task) ? connectedEmail : undefined)
   const subject = task.match(/\bsubject\s*[:=]?\s*["']([^"']+)["']/i)?.[1]
   const body = task.match(/\bbody\s*[:=]?\s*["']([^"']+)["']/i)?.[1]
   if (!recipient || !subject || !body) {
@@ -496,7 +497,7 @@ async function searchWeb(query: string): Promise<SearchResult[]> {
   const key = process.env.SERPAPI_API_KEY
   if (!key) throw new Error("SERPAPI_API_KEY is not configured on the server.")
   const url = new URL("https://serpapi.com/search.json")
-  url.search = new URLSearchParams({ engine: "google", q: query, api_key: key, num: "5" }).toString()
+  url.search = new URLSearchParams({ engine: "google", q: query, api_key: key, num: "10" }).toString()
   const response = await fetch(url, { cache: "no-store" })
   const data = await response.json()
   if (!response.ok || data.error) throw new Error(typeof data.error === "string" ? data.error : "SerpApi search failed.")
@@ -536,7 +537,7 @@ async function readWithBrowserbase(urls: string[]) {
   }
 }
 
-export async function executeAgent(clerkUserId: string, prompt: string, config: RunnableAgentConfig) {
+export async function executeAgent(clerkUserId: string, prompt: string, config: RunnableAgentConfig, connectedEmail?: string) {
   const knownTools = new Set(["google_search", "serp_search", "browserbase", "gmail", "google_docs", "google_calendar", "google_meet", "github", "discord"])
   const unsupported = config.tools.filter((tool) => !knownTools.has(tool))
   if (unsupported.length) throw Object.assign(new Error(`Unsupported agent tools: ${unsupported.join(", ")}`), { status: 501 })
@@ -566,8 +567,13 @@ export async function executeAgent(clerkUserId: string, prompt: string, config: 
   }
   const createMeetForTask = config.tools.includes("google_meet") || /\bmeeting\b/i.test(taskText)
 
-  if (config.tools.includes("google_search") || config.tools.includes("serp_search") || config.tools.includes("browserbase")) {
-    const results = await searchWeb(`${config.objective}\n${config.instructions}`)
+  const emailRequest = getEmailRequest(taskText, connectedEmail)
+  const searchEnabled = config.tools.some((tool) => ["google_search", "serp_search", "browserbase"].includes(tool))
+  if (searchEnabled) {
+    const searchQuery = emailRequest
+      ? `${config.objective} jobs careers latest openings`
+      : `${config.objective}\n${config.instructions}`
+    const results = await searchWeb(searchQuery)
     result.searchResults = results
     if (config.tools.includes("browserbase")) {
       sources.push(...await readWithBrowserbase(results.map((item) => item.link)))
@@ -576,13 +582,14 @@ export async function executeAgent(clerkUserId: string, prompt: string, config: 
     }
   }
 
-  const emailRequest = getEmailRequest(taskText)
+  const searchResults = result.searchResults as SearchResult[] | undefined
+  if (emailRequest && searchEnabled && !searchResults?.length) {
+    throw new Error("The job search returned no listings, so no email was sent. Try broadening the search or check the SerpApi connection.")
+  }
   if (emailRequest && !config.tools.includes("gmail")) {
     throw new Error("This agent does not have the Gmail tool. Add Gmail when configuring the agent, then reconnect Google with Gmail send permission.")
   }
-  if (emailRequest && accessToken) result.emailSent = await sendGmail(accessToken, emailRequest)
-
-  if (config.tools.includes("gmail") && accessToken) {
+  if (config.tools.includes("gmail") && accessToken && !emailRequest) {
     const list = await googleFetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is%3Aimportant%20newer_than%3A7d&maxResults=10", accessToken)
     const ids = (list.messages ?? []).map((message: { id: string }) => message.id).slice(0, 10)
     const messages: GmailMessage[] = await Promise.all(ids.map((id: string) =>
@@ -635,6 +642,21 @@ export async function executeAgent(clerkUserId: string, prompt: string, config: 
       // details. Keep already completed search, Docs, and Calendar work usable.
       result.warnings = [error instanceof Error ? error.message : "Google Meet could not create a meeting link."]
     }
+  }
+
+  if (emailRequest && accessToken) {
+    const emailNeedsMeetLink = createMeetForTask && /\b(?:meet|meeting)\b/i.test(taskText)
+    if (emailNeedsMeetLink && !meetingUrl) {
+      throw new Error("The meeting was created, but Google did not return a Meet link. No email was sent.")
+    }
+    const emailSections = [emailRequest.body]
+    if (searchResults?.length) {
+      emailSections.push(searchResults.map((item, index) => `${index + 1}. ${item.title}\n${item.snippet ? `${item.snippet}\n` : ""}${item.link}`).join("\n\n"))
+    }
+    if (emailNeedsMeetLink && meetingUrl && !emailRequest.body.includes(meetingUrl)) {
+      emailSections.push(`Google Meet link: ${meetingUrl}`)
+    }
+    result.emailSent = await sendGmail(accessToken, { ...emailRequest, body: emailSections.join("\n\n") })
   }
 
   result.sourceCount = sources.length
